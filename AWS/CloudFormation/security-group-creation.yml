@@ -1,0 +1,128 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  The template is used to create a security groups for ec2 and rds instances.
+
+#
+#PARAMETERS used to Create security groups
+#
+Parameters:
+  VPC:
+    Description: The AZ of subnet
+    Type: String
+  AZ:
+    Description: The AZ of subnet
+    Type: String
+  PublicSubnetCIDR: 
+    Description: The PublicSubnet CIDR(/24) value for VPC
+    Type: String
+  PrivateSubnetCIDR: 
+    Description: The PrivateSubnetCIDR(/24) value for VPC
+    Type: String
+  Environment:
+    Description: The application environment
+    Type: String
+  StackName:
+    Description: The Root stack name
+    Type: String
+
+#
+#RESOURCES creation 
+#
+Resources:
+
+#Security group for jumpbox instances
+  secJumpbox:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join [ "-", [ "sec-group",!Ref AZ,!Ref Environment,"jumpBox",!Ref StackName  ] ]
+      GroupDescription: Security Group to Allow SSH connections into Jumpbox
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref PrivateSubnetCIDR
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: !Ref PrivateSubnetCIDR
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "sec-group",!Ref AZ,!Ref Environment,"jumpBox",!Ref StackName  ] ]
+        - Key: Environment
+          Value: !Ref Environment
+
+#Security group for webServer instances
+  secEc2Private:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join [ "-", [ "sec-group",!Ref AZ,!Ref Environment,"webServer",!Ref StackName ] ]
+      GroupDescription: Security Group to Allow SSH connections into Private Instances
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !GetAtt secJumpbox.GroupId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: !Ref PrivateSubnetCIDR
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "sec-group",!Ref AZ,!Ref Environment,"webServer",!Ref StackName ] ]
+        - Key: Environment
+          Value: !Ref Environment
+
+#Security group for rds instances
+  secDBPrivate:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join [ "-", [ "sec-group",!Ref AZ,!Ref Environment,"rds",!Ref StackName  ] ]
+      GroupDescription: Security Group to Allows to connect to RDS from ec2
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !GetAtt secEc2Private.GroupId
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !GetAtt secJumpbox.GroupId
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "sec-group",!Ref AZ,!Ref Environment,"rds",!Ref StackName  ] ]
+        - Key: Environment
+          Value: !Ref Environment
+
+#
+#OUTPUT - these values can be used outside the stack
+#
+Outputs:
+#Secuirty groups
+  secJumpbox:
+     Description: The public subnet
+     Value: !Ref secJumpbox
+  secEc2Private:
+     Description: The private subnet 1
+     Value: !Ref secEc2Private
+  secDBPrivate:
+     Description: The public subnet
+     Value: !Ref secDBPrivate

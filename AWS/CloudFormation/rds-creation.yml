@@ -1,0 +1,90 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  The template is used to create RDS instance.
+
+#
+#PARAMETERS used to Create Ec2 Instances
+#
+Parameters:
+  secDBPrivate:
+     Description: The security group for rds instance
+     Type: String
+  rdsDBSubnetGroup:
+     Description: The rds subnet group that needs to be associated with the db instance
+     Type: String
+  RdsPassword:
+     Description: The password for mysql database
+     Type: String
+  AZ:
+    Description: The availability zone where rds needs to be deployed
+    Type: String
+  Environment:
+    Description: The application environment
+    Type: String
+  StackName:
+    Description: The Root stack name
+    Type: String
+  DBInstanceType:
+    Description: The RDS DB Instance type
+    Type: String
+
+#
+#MAPPING
+#
+Mappings:
+  RDSParamsFromEnvironment:
+    dev:
+      RDSStorageSize: 20
+      BackupRetentionDays: 0
+    qa:
+      RDSStorageSize: 50
+      BackupRetentionDays: 7
+    prod:
+      RDSStorageSize: 100
+      BackupRetentionDays: 14
+
+#
+#RESOURCES created
+#
+Resources:
+
+#RDS instance
+  rdsDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: !FindInMap [RDSParamsFromEnvironment, !Ref Environment, RDSStorageSize]
+      DBInstanceClass: !Ref DBInstanceType
+      AllowMajorVersionUpgrade: false
+      AvailabilityZone: !Ref AZ
+      BackupRetentionPeriod: !FindInMap [RDSParamsFromEnvironment, !Ref Environment, BackupRetentionDays]
+      DBInstanceIdentifier: !Join [ "-", [!Ref Environment,"db",!Ref AZ,!Ref StackName] ]
+      DBSubnetGroupName: !Ref rdsDBSubnetGroup
+      Engine: mysql
+      EngineVersion: 8.0.28
+      MasterUsername: admin
+      MasterUserPassword: !Ref RdsPassword
+      MultiAZ: false 
+      Port: 3306
+      DeleteAutomatedBackups: true
+      DeletionProtection: false
+      EnableIAMDatabaseAuthentication: true
+      EnablePerformanceInsights: false
+      StorageEncrypted: true
+      PubliclyAccessible: false 
+      StorageType: gp2
+      VPCSecurityGroups:
+        - !Ref secDBPrivate
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "rds",!Ref AZ,!Ref Environment,"database" ,!Ref StackName ] ]
+
+#
+#OUTPUT - these values can be used outside the stack
+#
+Outputs:
+#RDS Instance
+  rdsDBInstance:
+     Description: The id of rds instance
+     Value: !Ref rdsDBInstance

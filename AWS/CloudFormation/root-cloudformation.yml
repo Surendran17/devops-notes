@@ -1,0 +1,414 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  The template is used to create a system with jumpbox,AppServer and RDS instance. 
+  The resources deployed into a new VPC with necessary security groups and Nacls.
+
+#
+#METADATA - Group parameters 
+#
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - 
+        Label: 
+          default: "Network Configuration"
+        Parameters: 
+          - VPCCIDR
+          - AZs
+      - 
+        Label: 
+          default: "Public Subnet Configuration"
+        Parameters: 
+          - PublicSubnet1CIDR
+          - PublicSubnet2CIDR
+          - PublicSubnet3CIDR
+      - 
+        Label: 
+          default: "Private Subnet Configuration"
+        Parameters: 
+          - PrivateSubnet1CIDR
+          - PrivateSubnet2CIDR
+          - PrivateSubnet3CIDR
+      - 
+        Label: 
+          default: "EC2 Configuration"
+        Parameters: 
+          - LatestAmiId
+          - Ec2InstanceType 
+      - 
+        Label: 
+          default: "RDS Configuration"
+        Parameters: 
+          - RdsPassword
+          - DBInstanceType
+      - 
+        Label: 
+          default: "Deployment Information"
+        Parameters: 
+          - Environment
+          - StackName
+
+    ParameterLabels: 
+      VPCCIDR: 
+        default: "VPC CIDR"
+      AZs: 
+        default: "Availability Zones"
+      PublicSubnet1CIDR:
+        default: "Public Subnet 1 - CIDR"
+      PublicSubnet2CIDR:
+        default: "Public Subnet 2 - CIDR"
+      PublicSubnet3CIDR:
+        default: "Public Subnet 3 - CIDR"
+      PrivateSubnet1CIDR:
+        default: "Private Subnet 1 - CIDR"
+      PrivateSubnet2CIDR:
+        default: "Private Subnet 2 - CIDR"
+      PrivateSubnet3CIDR:
+        default: "Private Subnet 3 - CIDR"
+      LatestAmiId:
+        default: "Ami Id"
+      Ec2InstanceType:
+        default: "Ec2 Instance Type"
+      StackName:
+        default: "Stack/Application Name"
+      RdsPassword:
+        defaut: "RDS Password" 
+      DBInstanceType:
+        default: "RDS Intance Type"
+
+#
+#List of parameters to be used in the cloudformation
+#
+Parameters:
+
+#VPC Parameters
+  VPCCIDR: 
+    Description: The CIDR(/16) value for VPC
+    Type: String
+    Default: 10.0.0.0/16
+    #Pattern to check CIDR value
+    AllowedPattern: ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}(\/16)$
+    ConstraintDescription: Please enter a valid CIDR (/16).
+  AZs:
+    Description: Select 3 Availability zones
+    Type: List<AWS::EC2::AvailabilityZone::Name>
+    Default: us-east-1a, us-east-1b,us-east-1c
+    ConstraintDescription: Please select 3 Availability zones
+  PublicSubnet1CIDR: 
+    Description: The CIDR(/24) value for VPC
+    Type: String
+    Default: 10.0.0.0/24
+    AllowedPattern: ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}(\/24)$
+    ConstraintDescription: Please enter a valid CIDR (/24).
+  PublicSubnet2CIDR: 
+    Description: The CIDR(/24) value for VPC
+    Type: String
+    Default: 10.0.1.0/24
+    AllowedPattern: ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}(\/24)$
+    ConstraintDescription: Please enter a valid CIDR (/24).
+  PublicSubnet3CIDR: 
+    Description: The CIDR(/24) value for VPC
+    Type: String
+    Default: 10.0.2.0/24
+    AllowedPattern: ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}(\/24)$
+    ConstraintDescription: Please enter a valid CIDR (/24).
+  PrivateSubnet1CIDR: 
+    Description: The CIDR(/24) value for VPC
+    Type: String
+    Default: 10.0.128.0/24
+    AllowedPattern: ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}(\/24)$
+    ConstraintDescription: Please enter a valid CIDR (/24).
+  PrivateSubnet2CIDR: 
+    Description: The CIDR(/24) value for VPC
+    Type: String
+    Default: 10.0.129.0/24
+    AllowedPattern: ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}(\/24)$
+    ConstraintDescription: Please enter a valid CIDR (/24).
+  PrivateSubnet3CIDR: 
+    Description: The CIDR(/24) value for VPC
+    Type: String
+    Default: 10.0.130.0/24
+    AllowedPattern: ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}(\/24)$
+    ConstraintDescription: Please enter a valid CIDR (/24).
+
+#EC2 Parameters
+  LatestAmiId:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+  Ec2InstanceType:
+    Type: String
+    Default: t2.micro
+    ConstraintDescription: Please enter a valid Ec2InstanceType
+    AllowedValues:
+      - t1.micro
+      - t2.micro
+      - t2.nano
+      - t2.small
+      - t2.medium
+      - t2.large
+      - m1.small
+      - m1.medium
+      - m1.large
+      - m1.xlarge
+      - m2.xlarge
+      - m2.2xlarge
+      - m2.4xlarge
+      - m3.medium
+      - m3.large
+      - m3.xlarge
+      - m3.2xlarge
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - r5.large
+      - c5.large
+      - c5.xlarge
+      - c1.medium
+      - c1.xlarge
+      - c3.large
+      - c3.xlarge
+      - c3.2xlarge
+      - c3.4xlarge
+      - c3.8xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - g2.2xlarge
+      - g2.8xlarge
+      - r3.large
+      - r3.xlarge
+      - r3.2xlarge
+      - r3.4xlarge
+      - r3.8xlarge
+      - i2.xlarge
+      - i2.2xlarge
+      - i2.4xlarge
+      - i2.8xlarge
+      - d2.xlarge
+      - d2.2xlarge
+      - d2.4xlarge
+      - d2.8xlarge
+      - hi1.4xlarge
+      - hs1.8xlarge
+      - cr1.8xlarge
+      - cc2.8xlarge
+      - cg1.4xlarge
+
+#RDS parameters
+  RdsPassword:
+    Type: String
+    NoEcho: true
+    AllowedPattern: ^[A-Za-z\d][^\/'"@]{8,30}$
+    Description: The password length must be greater than 7 and less than 31. It should not contain / " ' @
+    ConstraintDescription: Please enter a valid password. The password length must be greater than 7 and less than 31. It should not contain / " ' @
+  DBInstanceType:
+    Type: String
+    Default: db.t3.micro
+    ConstraintDescription: Please enter a valid DBInstanceType from the list
+    AllowedValues:
+      - db.t3.large
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+
+#STACK/APP parameters  
+  Environment: 
+    Description: The application environment
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - qa
+      - prod
+    ConstraintDescription: Please enter a dev/qa/prod.
+  StackName: 
+    Description: The stack/application Name
+    Type: String
+    Default: webApp
+
+#
+#RESOURCES creation
+#
+Resources:
+
+#Call stack to create VPC and all required subnets along with security group and nacl.
+  VpcStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://cloudformation-templates-atu.s3.amazonaws.com/vpc-creation.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        VPCCIDR: !Ref VPCCIDR
+        AZs: !Join [",", !Ref AZs]
+        PublicSubnet1CIDR: !Ref PublicSubnet1CIDR
+        PublicSubnet2CIDR: !Ref PublicSubnet2CIDR
+        PublicSubnet3CIDR: !Ref PublicSubnet3CIDR
+        PrivateSubnet1CIDR: !Ref PrivateSubnet1CIDR
+        PrivateSubnet2CIDR: !Ref PrivateSubnet2CIDR
+        PrivateSubnet3CIDR: !Ref PrivateSubnet3CIDR
+        Environment: !Ref Environment
+        StackName: !Ref StackName
+
+#Call stack to create ec2 instances in first AZ
+  EC2StackAZ1:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://cloudformation-templates-atu.s3.amazonaws.com/ec2-creation.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        PublicSubnet: !GetAtt VpcStack.Outputs.PublicSubnet1
+        PrivateSubnet: !GetAtt VpcStack.Outputs.PrivateSubnet1
+        secJumpbox: !GetAtt VpcStack.Outputs.secJumpbox1
+        secEc2Private: !GetAtt VpcStack.Outputs.secEc2Private1
+        AZ: !Select [0, !Ref AZs]
+        Environment: !Ref Environment
+        LatestAmiId: !Ref LatestAmiId
+        Ec2InstanceType: !Ref Ec2InstanceType
+        StackName: !Ref StackName
+
+#Call stack to create ec2 instances in second AZ
+  EC2StackAZ2:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://cloudformation-templates-atu.s3.amazonaws.com/ec2-creation.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        PublicSubnet: !GetAtt VpcStack.Outputs.PublicSubnet2
+        PrivateSubnet: !GetAtt VpcStack.Outputs.PrivateSubnet2
+        secJumpbox: !GetAtt VpcStack.Outputs.secJumpbox2
+        secEc2Private: !GetAtt VpcStack.Outputs.secEc2Private2
+        AZ: !Select [1, !Ref AZs]
+        Environment: !Ref Environment
+        LatestAmiId: !Ref LatestAmiId
+        Ec2InstanceType: !Ref Ec2InstanceType
+        StackName: !Ref StackName
+
+#Call stack to create ec2 instances in third AZ
+  EC2StackAZ3:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://cloudformation-templates-atu.s3.amazonaws.com/ec2-creation.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        PublicSubnet: !GetAtt VpcStack.Outputs.PublicSubnet3
+        PrivateSubnet: !GetAtt VpcStack.Outputs.PrivateSubnet3
+        secJumpbox: !GetAtt VpcStack.Outputs.secJumpbox3
+        secEc2Private: !GetAtt VpcStack.Outputs.secEc2Private3
+        AZ: !Select [2, !Ref AZs]
+        Environment: !Ref Environment
+        LatestAmiId: !Ref LatestAmiId
+        Ec2InstanceType: !Ref Ec2InstanceType
+        StackName: !Ref StackName
+
+#Call stack to create rds instances in first AZ
+  RDSStackAZ1:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://cloudformation-templates-atu.s3.amazonaws.com/rds-creation.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        secDBPrivate: !GetAtt VpcStack.Outputs.secDBPrivate1
+        rdsDBSubnetGroup: !GetAtt VpcStack.Outputs.rdsDBSubnetGroup
+        AZ: !Select [0, !Ref AZs]
+        Environment: !Ref Environment
+        RdsPassword: !Ref RdsPassword
+        StackName: !Ref StackName
+        DBInstanceType: !Ref DBInstanceType
+
+#Call stack to create rds instances in second AZ
+  RDSStackAZ2:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://cloudformation-templates-atu.s3.amazonaws.com/rds-creation.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        secDBPrivate: !GetAtt VpcStack.Outputs.secDBPrivate2
+        rdsDBSubnetGroup: !GetAtt VpcStack.Outputs.rdsDBSubnetGroup
+        AZ: !Select [1, !Ref AZs]
+        Environment: !Ref Environment
+        RdsPassword: !Ref RdsPassword
+        StackName: !Ref StackName
+        DBInstanceType: !Ref DBInstanceType
+
+#Call stack to create rds instances in third AZ
+  RDSStackAZ3:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub https://cloudformation-templates-atu.s3.amazonaws.com/rds-creation.yml
+      TimeoutInMinutes: 5
+      Parameters:
+        secDBPrivate: !GetAtt VpcStack.Outputs.secDBPrivate3
+        rdsDBSubnetGroup: !GetAtt VpcStack.Outputs.rdsDBSubnetGroup
+        AZ: !Select [2, !Ref AZs]
+        Environment: !Ref Environment 
+        RdsPassword: !Ref RdsPassword
+        StackName: !Ref StackName
+        DBInstanceType: !Ref DBInstanceType
+
+#
+#OUTPUT - these values can be used outside the stack
+#
+Outputs:
+#VPC
+  VPC:
+    Description: The VPC id 
+    Value: !GetAtt VpcStack.Outputs.VPC
+    Export:
+      Name: !Join [ "-", [ "vpc",!Ref "AWS::Region",!Ref Environment,!Ref StackName ] ]
+#EC2 Instances in first AZ  
+  JumpboxAZ1:
+    Description: The Jumpbox1 id 
+    Value: !GetAtt EC2StackAZ1.Outputs.jumpBoxEC2
+    Export:
+      Name: !Join [ "-", [ "ec2",!Select [0, !Ref AZs],!Ref Environment,"jumpBox",!Ref StackName ] ]
+  WebServerAZ1:
+    Description: The WebServer1 id
+    Value: !GetAtt EC2StackAZ1.Outputs.webServerEc2
+    Export:
+      Name: !Join [ "-", [ "ec2",!Select [0, !Ref AZs],!Ref Environment,"webServer",!Ref StackName ] ]
+#EC2 Instances in second AZ   
+  JumpboxAZ2:
+    Description: The Jumpbox2 id 
+    Value: !GetAtt EC2StackAZ2.Outputs.jumpBoxEC2
+    Export:
+      Name: !Join [ "-", [ "ec2",!Select [1, !Ref AZs],!Ref Environment,"jumpBox",!Ref StackName ] ]
+  WebServerAZ2:
+    Description: The WebServer2 id 
+    Value: !GetAtt EC2StackAZ2.Outputs.webServerEc2
+    Export:
+      Name: !Join [ "-", [ "ec2",!Select [1, !Ref AZs],!Ref Environment,"webServer",!Ref StackName ] ]
+#EC2 Instances in third AZ  
+  JumpboxAZ3:
+    Description: The Jumpbox3 id 
+    Value: !GetAtt EC2StackAZ3.Outputs.jumpBoxEC2
+    Export:
+      Name: !Join [ "-", [ "ec2",!Select [2, !Ref AZs],!Ref Environment,"jumpBox",!Ref StackName ] ]
+  WebServerAZ3:
+    Description: The WebServer3 id 
+    Value: !GetAtt EC2StackAZ3.Outputs.webServerEc2
+    Export:
+      Name: !Join [ "-", [ "ec2",!Select [2, !Ref AZs],!Ref Environment,"webServer",!Ref StackName ] ]
+#RDS Instance in first AZ  
+  rdsDBInstanceAZ1:
+    Description: The rdsDBInstance1 id 
+    Value: !GetAtt RDSStackAZ1.Outputs.rdsDBInstance
+    Export:
+      Name: !Join [ "-", [ "rds",!Select [0, !Ref AZs],!Ref Environment,"database" ,!Ref StackName ] ]
+#RDS Instance in second AZ    
+  rdsDBInstanceAZ2:
+    Description: The rdsDBInstance2 id 
+    Value: !GetAtt RDSStackAZ2.Outputs.rdsDBInstance
+    Export:
+      Name: !Join [ "-", [ "rds",!Select [1, !Ref AZs],!Ref Environment,"database" ,!Ref StackName ] ]
+#RDS Instance in third AZ   
+  rdsDBInstanceAZ3:
+    Description: The rdsDBInstance3 id 
+    Value: !GetAtt RDSStackAZ3.Outputs.rdsDBInstance
+    Export:
+      Name: !Join [ "-", [ "rds",!Select [2, !Ref AZs],!Ref Environment,"database" ,!Ref StackName ] ]
