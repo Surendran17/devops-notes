@@ -1,2 +1,2 @@
-# devops-notes
-Project to store commands and activity performed in each week during Masters
+# devops-bag
+Project to store all material and personal projects 
