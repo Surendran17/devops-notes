@@ -1,2 +1,2 @@
 # devops-bag
-Project to store all material and personal projects 
+Project to store Personal projects and materials. 
