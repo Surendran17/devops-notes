@@ -1,4 +1,4 @@
-# Advanced Demo - Simple Site2Site VPN
+# Simple Site2Site VPN
 
 ![Architecture](https://github.com/Surendran17/project-bag/raw/main/AWS/VPN/SiteToSiteVPN.png)
 
