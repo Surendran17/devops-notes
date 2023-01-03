@@ -1,4 +1,3 @@
-#ASL for state machine
 {
   "Comment": "Pet Cuddle-o-Tron - using Lambda for email.",
   "StartAt": "Timer",
